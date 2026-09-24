@@ -1,13 +1,14 @@
 # Géolocaliser un répéteur MeshCore avec le RSSI
 
-Deux sketches Arduino qui transforment une carte LoRa en **chercheur de répéteur MeshCore** : elle écoute le réseau, repère les paquets émis par *un* répéteur précis, et affiche en temps réel la puissance du signal reçu (RSSI), le rapport signal/bruit (SNR) et le temps écoulé depuis le dernier paquet. En vous déplaçant, vous suivez le RSSI comme un jeu du « chaud / froid » pour retrouver l'emplacement physique du répéteur.
+Trois sketches Arduino qui transforment une carte LoRa en **chercheur de répéteur MeshCore** : elle écoute le réseau, repère les paquets émis par *un* répéteur précis, et affiche en temps réel la puissance du signal reçu (RSSI), le rapport signal/bruit (SNR) et le temps écoulé depuis le dernier paquet. En vous déplaçant, vous suivez le RSSI comme un jeu du « chaud / froid » pour retrouver l'emplacement physique du répéteur.
 
 | Carte | Sketch | Écran | Microcontrôleur |
 |---|---|---|---|
-| **Heltec WiFi LoRa 32 V3** | [`MeshCaching_Arduino_IDE_HeltecV3.ino`] | OLED SSD1306 128×64 | ESP32-S3 |
-| **LilyGO T-Echo** | [`MeshCaching_Arduino_IDE_LilygoTEcho.ino`]| e-paper 1,54" 200×200 | nRF52840 |
+| **Heltec WiFi LoRa 32 V3** | [`MeshCaching_Arduino_IDE_HeltecV3`](MeshCaching_Arduino_IDE_HeltecV3/MeshCaching_Arduino_IDE_HeltecV3.ino) | OLED SSD1306 128×64 | ESP32-S3 |
+| **LilyGO T-Echo** | [`MeshCaching_Arduino_IDE_LilygoTEcho`](MeshCaching_Arduino_IDE_LilygoTEcho/MeshCaching_Arduino_IDE_LilygoTEcho.ino) | e-paper 1,54" 200×200 | nRF52840 |
+| **Seeed XIAO ESP32S3 + Wio-SX1262** | [`MeshCaching_Arduino_IDE_XiaoS3Wio`](MeshCaching_Arduino_IDE_XiaoS3Wio/MeshCaching_Arduino_IDE_XiaoS3Wio.ino) | aucun : **smartphone** en Wi-Fi (page web) et/ou Bluetooth | ESP32-S3 |
 
-Les deux sketches partagent la même logique (décodage des paquets MeshCore, comparaison avec le répéteur cible). Seuls le brochage, l'écran et quelques appels spécifiques au microcontrôleur diffèrent.
+Les trois sketches partagent la même logique (décodage des paquets MeshCore, comparaison avec le répéteur cible). Seuls le brochage, l'affichage et quelques appels spécifiques au microcontrôleur diffèrent.
 
 ---
 
@@ -49,13 +50,14 @@ Attendre passivement peut être long : un répéteur n'émet que lorsqu'il relai
 
 ## Ce qu'il vous faut
 
-- Une carte **Heltec WiFi LoRa 32 V3** ou un **LilyGO T-Echo** (bande 868 MHz pour l'Europe).
+- Une carte **Heltec WiFi LoRa 32 V3**, un **LilyGO T-Echo** ou un kit **XIAO ESP32S3 + Wio-SX1262** (bande 868 MHz pour l'Europe).
+- Pour le XIAO, qui n'a pas d'écran : un **smartphone Android** (navigateur Chrome, et éventuellement l'appli gratuite *Serial Bluetooth Terminal*).
 - **Son antenne LoRa, toujours branchée avant de mettre sous tension** : émettre sans antenne peut endommager l'étage radio.
 - Un câble USB-C pour le flashage.
 - **Sous Linux, pour le T-Echo** : l'outil `adafruit-nrfutil` (voir [Avant de lancer l'IDE Arduino](#avant-de-lancer-lide-arduino-linux)).
 - Le **préfixe de clé publique du répéteur** à trouver (voir plus bas).
 - Un smartphone avec GPS (application de cartographie) pour noter vos positions de mesure.
-- Pour aller plus loin : une **antenne directive** (Yagi) en connectique adaptée à votre carte. Sur le T-Echo, l'antenne est intégrée au boîtier, donc le Heltec est plus pratique pour ça.
+- Pour aller plus loin : une **antenne directive** (Yagi) en connectique adaptée à votre carte. Sur le T-Echo, l'antenne est intégrée au boîtier : le Heltec ou le XIAO (connecteur U.FL/IPEX sur la Wio-SX1262) sont plus pratiques pour ça.
 
 ---
 
@@ -69,7 +71,7 @@ Attendre passivement peut être long : un répéteur n'émet que lorsqu'il relai
 
 1. Installer le support des cartes Heltec/ESP32 dans l'IDE Arduino et choisir la carte **Heltec WiFi LoRa 32(V3)**.
 2. Installer les bibliothèques : **Adafruit SSD1306**, **Adafruit GFX** (et Adafruit BusIO, installée en dépendance).
-3. Ouvrir `rssi-meshcore-repeater/rssi-meshcore-repeater.ino`, brancher la carte, téléverser.
+3. Ouvrir `MeshCaching_Arduino_IDE_HeltecV3/MeshCaching_Arduino_IDE_HeltecV3.ino`, brancher la carte, téléverser.
 
 ### LilyGO T-Echo
 
@@ -110,10 +112,29 @@ Si l'aide s'affiche, **lancez (ou relancez) l'IDE Arduino**. Si elle était déj
    ```
 2. Dans le gestionnaire de cartes, installer **Adafruit nRF52 by Adafruit**, puis choisir la carte **Nordic nRF52840 DK (PCA10056)**.
 3. Installer les bibliothèques : **GxEPD2**, **Adafruit GFX**, **Adafruit BusIO**.
-4. Ouvrir `rssi-meshcore-repeater-techo/rssi-meshcore-repeater-techo.ino`.
+4. Ouvrir `MeshCaching_Arduino_IDE_LilygoTEcho/MeshCaching_Arduino_IDE_LilygoTEcho.ino`.
 5. **Double-cliquer sur le bouton reset** (en haut à gauche) pour passer en mode DFU : un lecteur USB apparaît. Téléverser ensuite normalement.
 
 > **Alternative sans passer par le téléversement de l'IDE** : convertir le `.hex` compilé en fichier `.uf2` et le copier sur le T-Echo comme sur une clé USB. Voir la section suivante.
+
+### Seeed XIAO ESP32S3 + Wio-SX1262
+
+> ⚠️ **Ce sketch remplace le firmware Meshtastic (ou MeshCore) de la carte.** Elle ne sera plus un nœud du réseau le temps de la chasse, et les applis Meshtastic/MeshCore ne la verront plus : l'affichage passe par le navigateur ou un terminal Bluetooth (voir [Lire les résultats sur le smartphone](#xiao-esp32s3-smartphone)). Pour revenir à Meshtastic ensuite : [flasher.meshtastic.org](https://flasher.meshtastic.org/), carte *Seeed Xiao ESP32-S3*. Pour garder une copie exacte du firmware actuel avant de flasher :
+> ```bash
+> esptool.py --chip esp32s3 read_flash 0 0x800000 sauvegarde-xiao.bin   # sauvegarde (8 Mo)
+> esptool.py --chip esp32s3 write_flash 0 sauvegarde-xiao.bin           # restauration
+> ```
+
+1. Dans *Fichier → Préférences → URL de gestionnaire de cartes supplémentaires*, ajouter :
+   ```
+   https://espressif.github.io/arduino-esp32/package_esp32_index.json
+   ```
+2. Dans le gestionnaire de cartes, installer **esp32 by Espressif Systems** (testé avec la version 3.3), puis choisir la carte **XIAO_ESP32S3**.
+3. Dans le menu *Outils*, vérifier **USB CDC On Boot : Enabled** (sinon le moniteur série reste muet).
+4. Aucune bibliothèque en plus de **RadioLib** : Wi-Fi, serveur web et Bluetooth sont fournis avec le paquet ESP32.
+5. Ouvrir `MeshCaching_Arduino_IDE_XiaoS3Wio/MeshCaching_Arduino_IDE_XiaoS3Wio.ino` (le fichier `web_page.h` s'ouvre dans un second onglet : c'est la page affichée sur le téléphone), brancher la carte, téléverser.
+
+Si le téléversement échoue (port introuvable), passer le XIAO en mode bootloader : maintenir le petit bouton **B** (BOOT), appuyer sur **R** (RESET), relâcher **B**, puis téléverser à nouveau.
 
 ---
 
@@ -130,7 +151,7 @@ Compilez le sketch dans l'IDE Arduino (*Croquis → Vérifier/Compiler*), puis :
 - soit **Croquis → Exporter les binaires compilés** (`Ctrl+Alt+S`) : les fichiers sont copiés dans le sous-dossier `build/<carte>/` du dossier du sketch ;
 - soit récupérez-le dans le dossier temporaire de compilation. Sous Linux : `~/.cache/arduino/sketches/<code>/` (`ls -t ~/.cache/arduino/sketches/` : le plus récent est le vôtre). Avec une IDE installée en Flatpak : `~/.var/app/cc.arduino.IDE2/cache/arduino/sketches/<code>/`.
 
-Le fichier se nomme `<nom-du-sketch>.ino.hex`, par exemple `rssi-meshcore-repeater-techo.ino.hex`. Seul le `.hex` est utile ici (le `.zip` sert à l'IDE pour son propre téléversement).
+Le fichier se nomme `<nom-du-sketch>.ino.hex`, par exemple `MeshCaching_Arduino_IDE_LilygoTEcho.ino.hex`. Seul le `.hex` est utile ici (le `.zip` sert à l'IDE pour son propre téléversement).
 
 ### 2. Installer l'outil de conversion (une seule fois)
 
@@ -154,7 +175,7 @@ Le fichier `uf2families.json` est **indispensable** : sans lui, le script s'arr�
 Placez-vous dans le dossier qui contient le `.hex` (ou donnez son chemin complet), puis :
 
 ```bash
-python3 ~/uf2conv.py rssi-meshcore-repeater-techo.ino.hex -c -f 0xADA52840 -o firmware.uf2
+python3 ~/uf2conv.py MeshCaching_Arduino_IDE_LilygoTEcho.ino.hex -c -f 0xADA52840 -o firmware.uf2
 ```
 
 | Option | Rôle |
@@ -222,12 +243,14 @@ Les valeurs par défaut correspondent au réseau MeshCore **Île-de-France** (pr
 2. Au démarrage :
    - **Heltec** : `Initialisation…` puis `En attente de paquets MeshCore`.
    - **T-Echo** : l'écran affiche `Init radio / patientez...` (LED rouge allumée), puis la LED verte fait deux flashs et l'écran passe à `En attente de paquets MeshCore` avec le préfixe recherché. Si la radio n'est pas détectée, l'initialisation peut durer 10 à 20 s avant un message d'erreur (voir [Dépannage](#dépannage)).
+   - **XIAO** : connectez le téléphone au Wi-Fi `MeshCaching-E0B6` (mot de passe `meshcaching`) et ouvrez `http://192.168.4.1`, et/ou connectez-vous en Bluetooth à `MeshCaching-E0B6` (voir [plus bas](#xiao-esp32s3-smartphone)).
 3. Placez-vous dans une zone où vous pensez capter le répéteur (en hauteur, dégagé). Dès qu'un paquet du répéteur est reçu :
    - l'écran affiche le RSSI, le SNR et le temps écoulé ;
-   - sur T-Echo, la LED bleue clignote ; sur Heltec, l'écran clignote (inversion).
+   - sur T-Echo, la LED bleue clignote ; sur Heltec, l'écran clignote (inversion) ; sur XIAO, le téléphone vibre (page web) ou affiche une ligne `CIBLE` (Bluetooth).
 4. **Pour forcer une réponse**, appuyez sur le bouton :
    - Heltec : bouton **PRG** ;
-   - T-Echo : **bouton utilisateur** (pas le bouton reset/DFU). La LED rouge est allumée pendant l'émission.
+   - T-Echo : **bouton utilisateur** (pas le bouton reset/DFU). La LED rouge est allumée pendant l'émission ;
+   - XIAO : bouton **Ping le répéteur** de la page web, commande `p` en Bluetooth, ou bouton utilisateur de la carte Wio-SX1262 (le petit bouton **B** du XIAO fonctionne aussi).
 5. Déplacez-vous et surveillez l'évolution du RSSI (voir la méthode ci-dessous).
 
 Un délai minimal de 5 secondes est imposé entre deux pings pour ménager le duty cycle.
@@ -236,7 +259,7 @@ Un délai minimal de 5 secondes est imposé entre deux pings pour ménager le du
 
 ---
 
-## Lire l'écran
+## Lire l'écran (ou le smartphone)
 
 ### Heltec V3 (OLED)
 
@@ -275,6 +298,56 @@ Le **temps écoulé** est essentiel : un RSSI de `-85 dBm` vieux de 3 minutes ne
 | 2 flashs bleus | paquet du répéteur cible détecté |
 | LED rouge pendant quelques instants | émission d'un ping |
 
+<a id="xiao-esp32s3-smartphone"></a>
+### XIAO ESP32S3 (smartphone)
+
+Le kit n'a ni écran ni LED utilisable : tout passe par le téléphone. Le nom `MeshCaching-XXXX` (XXXX = préfixe du répéteur) sert à la fois de réseau Wi-Fi et d'appareil Bluetooth. Les deux modes peuvent fonctionner en même temps, et chacun se désactive en tête de sketch (`USE_WIFI_WEB`, `USE_BLE_UART`).
+
+**Page web (Wi-Fi)**, la plus lisible sur le terrain :
+
+1. Paramètres Wi-Fi d'Android → réseau **`MeshCaching-E0B6`**, mot de passe **`meshcaching`** (modifiable : `WIFI_AP_PASSWORD`).
+2. Android signale « Pas d'accès à Internet » : choisir **Rester connecté**. Les données mobiles restent utilisables pour les autres applis.
+3. Dans Chrome, ouvrir **`http://192.168.4.1`**.
+
+```
+Répéteur E0B6                 connecté
+┌──────────────────────────────────┐
+│             -89 dBm              │   ← fond coloré selon le niveau :
+│              Tiède               │     Brûlant > -70, Chaud > -85,
+│      ▲ +3 dB, plus chaud         │     Tiède > -100, Froid > -112, Glacial
+└──────────────────────────────────┘
+   4.5          12 s          5
+ SNR (dB)   dernier paquet  détections
+[ graphique du RSSI sur 10 minutes ]
+[        Ping le répéteur          ]
+   ☑ Vibration     ☐ Bip
+```
+
+- mise à jour **chaque seconde** ; la tendance compare le RSSI au paquet précédent ;
+- le téléphone **vibre** à chaque nouveau paquet du répéteur (vibration courte et triple quand le signal est fort) ;
+- l'option **Bip** joue un son d'autant plus aigu que le signal est fort : pratique pour chercher sans regarder l'écran ;
+- Chrome n'autorise vibration et son qu'après **un premier appui sur la page** ;
+- le « dernier paquet » passe en orange au-delà de 2 minutes : un vieux RSSI ne dit rien de votre position actuelle.
+
+**Bluetooth (terminal texte)**, plus économe en batterie :
+
+1. Installer l'appli gratuite **Serial Bluetooth Terminal** (Kai Morich) depuis le Play Store.
+2. Menu → *Devices* → onglet **Bluetooth LE** → *Scan* → **`MeshCaching-E0B6`**, puis se connecter.
+3. Les lignes s'affichent au fil de l'eau :
+
+```
+MeshCaching-E0B6 : en attente de paquets (3 entendus)
+CIBLE E0B6 : -89 dBm, SNR 4.5 dB (annonce)
+E0B6 : -89 dBm, SNR 4.5 dB, il y a 10s
+Envoi TRACE (tag=1A2B3C4D) vers REPETEUR E0...
+CIBLE E0B6 : -84 dBm, SNR 6.0 dB (reponse TRACE)
+```
+
+- une ligne `CIBLE` par paquet du répéteur, et un rappel de l'état **toutes les 10 secondes** (pour suivre le temps écoulé) ;
+- envoyer **`p`** pour un ping, **`s`** pour l'état immédiat. Astuce : l'appli permet d'associer ces commandes à des boutons (*macros*).
+
+Le moniteur série (115200 bauds, USB) affiche les mêmes lignes, plus tous les paquets ignorés.
+
 ---
 
 ## Méthode pour localiser le répéteur
@@ -306,7 +379,7 @@ Les valeurs indiquées sont indicatives, elles dépendent des antennes et de l'e
 
 ### Technique 3 : radiogoniométrie avec antenne directive
 
-Avec une antenne Yagi branchée sur le Heltec :
+Avec une antenne Yagi branchée sur le Heltec ou le XIAO :
 
 1. En un point donné, **tournez lentement l'antenne** et repérez la direction qui donne le RSSI maximal : c'est un **relèvement** vers le répéteur.
 2. Notez ce cap (boussole du téléphone).
@@ -325,24 +398,24 @@ Astuce : votre **corps** atténue le signal. Tenir la carte contre soi, puis la 
 
 ---
 
-## Différences entre les deux cartes
+## Différences entre les cartes
 
-| | Heltec WiFi LoRa 32 V3 | LilyGO T-Echo |
-|---|---|---|
-| MCU | ESP32-S3 | nRF52840 |
-| Radio | SX1262 | SX1262 |
-| Écran | OLED SSD1306 (128×64) | e-paper 1,54" (200×200, GDEH0154D67) |
-| Rafraîchissement écran | chaque seconde | 10 s (ou immédiat sur nouveau paquet) |
-| Bouton de ping | PRG (GPIO 0) | bouton utilisateur (P1.10) |
-| Retour visuel | clignotement de l'écran | LED bleue (réception), LED rouge (émission) |
-| Alimentation périphériques | broche Vext (GPIO 36, niveau bas) | deux broches, P0.12 et P0.13 (niveau haut) |
-| Bus SPI | un seul (`SPI`) | deux : écran (`NRF_SPIM2`) et radio (`NRF_SPIM3`) |
-| Aléatoire | `esp_random()` | `random()` initialisé avec l'ID de la puce |
-| Bibliothèque écran | Adafruit SSD1306 | GxEPD2 |
-| TCXO / commutateur d'antenne | valeurs par défaut de RadioLib | TCXO 1,8 V et DIO2 comme commutateur RF |
-| Antenne | connecteur, externe possible | intégrée au boîtier |
-| Température d'utilisation de l'écran | non critique | écran donné pour 0 °C à 50 °C, plus lent par grand froid |
-| Autonomie | courte (écran allumé en continu) | longue (e-paper) |
+| | Heltec WiFi LoRa 32 V3 | LilyGO T-Echo | XIAO ESP32S3 + Wio-SX1262 |
+|---|---|---|---|
+| MCU | ESP32-S3 | nRF52840 | ESP32-S3 |
+| Radio | SX1262 | SX1262 | SX1262 |
+| Écran | OLED SSD1306 (128×64) | e-paper 1,54" (200×200, GDEH0154D67) | aucun : page web (Wi-Fi) et/ou terminal Bluetooth sur smartphone |
+| Rafraîchissement écran | chaque seconde | 10 s (ou immédiat sur nouveau paquet) | chaque seconde (page web), 10 s (rappel Bluetooth) |
+| Bouton de ping | PRG (GPIO 0) | bouton utilisateur (P1.10) | bouton de la Wio-SX1262 (GPIO 21) ou BOOT (GPIO 0), page web, commande `p` |
+| Retour visuel | clignotement de l'écran | LED bleue (réception), LED rouge (émission) | vibration / bip du téléphone |
+| Alimentation périphériques | broche Vext (GPIO 36, niveau bas) | deux broches, P0.12 et P0.13 (niveau haut) | aucune broche à piloter |
+| Bus SPI | un seul (`SPI`) | deux : écran (`NRF_SPIM2`) et radio (`NRF_SPIM3`) | un seul (`SPI`) |
+| Aléatoire | `esp_random()` | `random()` initialisé avec l'ID de la puce | `esp_random()` |
+| Bibliothèque écran | Adafruit SSD1306 | GxEPD2 | aucune (Wi-Fi, WebServer et BLE du paquet ESP32) |
+| TCXO / commutateur d'antenne | valeurs par défaut de RadioLib | TCXO 1,8 V et DIO2 comme commutateur RF | TCXO 1,8 V, DIO2 (émission) + GPIO 38 (réception) |
+| Antenne | connecteur, externe possible | intégrée au boîtier | connecteur U.FL/IPEX, externe possible |
+| Température d'utilisation de l'écran | non critique | écran donné pour 0 °C à 50 °C, plus lent par grand froid | sans objet |
+| Autonomie | courte (écran allumé en continu) | longue (e-paper) | moyenne (le Wi-Fi consomme ~100 mA ; le Bluetooth seul, bien moins) |
 
 ### Brochage
 
@@ -368,6 +441,17 @@ Astuce : votre **corps** atténue le signal. Tenir la carte contre soi, puis la 
 | LED verte / rouge / bleue | P1.01 / P1.03 / P0.14 (actives niveau bas) |
 | Bouton utilisateur | P1.10 (actif niveau bas) |
 
+**XIAO ESP32S3 + Wio-SX1262** (connecteur carte à carte du kit, identique aux variantes officielles Meshtastic `seeed_xiao_s3` et MeshCore `xiao_s3_wio`)
+
+| Fonction | GPIO |
+|---|---|
+| LoRa CS / SCK / MOSI / MISO | 41 / 7 / 9 / 8 |
+| LoRa RST / BUSY / DIO1 | 42 / 40 / 39 |
+| Commutateur d'antenne | RXEN = 38, émission pilotée par DIO2 |
+| TCXO | 1,8 V par DIO3 |
+| Bouton utilisateur (Wio-SX1262) | 21 (actif niveau bas) |
+| Bouton BOOT (« B ») du XIAO | 0 |
+
 ---
 
 ## Paramètres modifiables
@@ -376,15 +460,18 @@ Tous sont en tête de sketch (`#define`).
 
 | Paramètre | Rôle | Sketch |
 |---|---|---|
-| `TARGET_PUBKEY_PREFIX` | préfixe du répéteur à chercher | les deux |
-| `LORA_FREQ_MHZ`, `LORA_BW_KHZ`, `LORA_SF`, `LORA_CR` | paramètres radio du réseau | les deux |
-| `LORA_TX_POWER` | puissance d'émission du ping (dBm) | les deux |
-| `ACCEPT_RELAYED_FLOOD` | `1` : retient aussi les paquets flood retransmis par le répéteur (plus de mises à jour, risque de confusion entre répéteurs de même premier octet). `0` : uniquement annonces et réponses au ping, sans ambiguïté | les deux |
-| `TRACE_REPLY_TIMEOUT_MS` | fenêtre d'acceptation de la réponse au ping | les deux |
+| `TARGET_PUBKEY_PREFIX` | préfixe du répéteur à chercher | tous |
+| `LORA_FREQ_MHZ`, `LORA_BW_KHZ`, `LORA_SF`, `LORA_CR` | paramètres radio du réseau | tous |
+| `LORA_TX_POWER` | puissance d'émission du ping (dBm) | tous |
+| `ACCEPT_RELAYED_FLOOD` | `1` : retient aussi les paquets flood retransmis par le répéteur (plus de mises à jour, risque de confusion entre répéteurs de même premier octet). `0` : uniquement annonces et réponses au ping, sans ambiguïté | tous |
+| `TRACE_REPLY_TIMEOUT_MS` | fenêtre d'acceptation de la réponse au ping | tous |
 | `DISPLAY_REFRESH_MS` | période de rafraîchissement du compteur | T-Echo |
 | `FULL_REFRESH_EVERY` | fréquence du rafraîchissement complet | T-Echo |
-| `BUTTON_COOLDOWN_MS` | délai minimal entre deux pings | T-Echo |
+| `BUTTON_COOLDOWN_MS` | délai minimal entre deux pings | T-Echo, XIAO |
 | `EPD_ROTATION` | orientation de l'écran (3 ou 1) | T-Echo |
+| `USE_WIFI_WEB` | `1` : point d'accès Wi-Fi et page web | XIAO |
+| `USE_BLE_UART` | `1` : terminal Bluetooth (Nordic UART) | XIAO |
+| `WIFI_AP_PASSWORD` | mot de passe du Wi-Fi (8 caractères minimum) | XIAO |
 
 ---
 
@@ -417,6 +504,11 @@ Tous sont en tête de sketch (`#define`).
 | Détections douteuses | Un autre répéteur au même premier octet : passer `ACCEPT_RELAYED_FLOOD` à `0`. |
 | Détections trop rares | Normal si le répéteur n'a pas de trafic à relayer et annonce peu souvent : appuyer sur le bouton pour envoyer un ping, ou laisser `ACCEPT_RELAYED_FLOOD` à `1`. |
 | Pas de réponse au ping | Firmware ou configuration du répéteur ; se rabattre sur l'écoute passive. |
+| XIAO : moniteur série muet | Régler *Outils → USB CDC On Boot : Enabled* et téléverser à nouveau. |
+| XIAO : `Erreur LoRa : -2` en boucle sur le port série | La carte Wio-SX1262 n'est pas détectée : vérifier qu'elle est bien enfichée sur le XIAO. |
+| XIAO : la page `http://192.168.4.1` ne s'ouvre pas | Vérifier que le téléphone est bien resté sur le Wi-Fi `MeshCaching-…` (accepter « Rester connecté » malgré l'absence d'Internet), et taper l'adresse avec `http://` (pas `https://`). |
+| XIAO : ni vibration ni bip | Toucher la page une fois (exigence de Chrome), vérifier les cases *Vibration* / *Bip* et que le téléphone n'est pas en silencieux. |
+| XIAO : appareil Bluetooth introuvable | Chercher dans l'onglet **Bluetooth LE** de l'appli (pas « Bluetooth Classic ») ; ne pas associer le XIAO dans les paramètres Android. Un seul téléphone peut être connecté à la fois. |
 
 **Si l'IDE Arduino ne trouve pas `adafruit-nrfutil` alors qu'il est installé** (la commande fonctionne dans un terminal mais pas dans l'IDE : c'est un problème de `PATH`) :
 
@@ -429,7 +521,7 @@ Tous sont en tête de sketch (`#define`).
 - sans `pipx` : `pip3 install --user adafruit-nrfutil`. Avec un Python récent, `pip` peut répondre `externally-managed-environment` : utiliser alors `pipx` (voir plus haut), ou ajouter `--break-system-packages` ;
 - une IDE installée en Flatpak, Snap ou AppImage n'hérite pas toujours du `PATH` du terminal : le lien global règle le problème, ou lancer l'IDE depuis un terminal.
 
-Le **moniteur série (115200 bauds)** affiche chaque paquet reçu (longueur, RSSI, SNR). Lorsque la détection réussit, la ligne se termine par `[REPETEUR CIBLE : annonce]`, `[REPETEUR CIBLE : relais flood]` ou `[REPETEUR CIBLE : reponse TRACE]` selon la raison ; les autres paquets sont marqués `(ignore)`. Au démarrage, il affiche aussi `Initialisation LoRa...` puis `LoRa OK` (ou l'erreur et son code). C'est le meilleur outil de diagnostic.
+Le **moniteur série (115200 bauds)** affiche chaque paquet reçu (longueur, RSSI, SNR). Lorsque la détection réussit, la ligne se termine par `[REPETEUR CIBLE : annonce]`, `[REPETEUR CIBLE : relais flood]` ou `[REPETEUR CIBLE : reponse TRACE]` selon la raison ; les autres paquets sont marqués `(ignore)`. Sur le XIAO, une détection s'affiche sous la forme `CIBLE E0B6 : -89 dBm, SNR 4.5 dB (annonce)`. Au démarrage, il affiche aussi `Initialisation LoRa...` puis `LoRa OK` (ou l'erreur et son code). C'est le meilleur outil de diagnostic.
 
 ---
 
@@ -438,10 +530,13 @@ Le **moniteur série (115200 bauds)** affiche chaque paquet reçu (longueur, RSS
 ```
 .
 ├── README.md
-├── rssi-meshcore-repeater/
-│   └── rssi-meshcore-repeater.ino          # Heltec WiFi LoRa 32 V3
-└── rssi-meshcore-repeater-techo/
-    └── rssi-meshcore-repeater-techo.ino    # LilyGO T-Echo
+├── MeshCaching_Arduino_IDE_HeltecV3/
+│   └── MeshCaching_Arduino_IDE_HeltecV3.ino     # Heltec WiFi LoRa 32 V3
+├── MeshCaching_Arduino_IDE_LilygoTEcho/
+│   └── MeshCaching_Arduino_IDE_LilygoTEcho.ino  # LilyGO T-Echo
+└── MeshCaching_Arduino_IDE_XiaoS3Wio/
+    ├── MeshCaching_Arduino_IDE_XiaoS3Wio.ino    # XIAO ESP32S3 + Wio-SX1262
+    └── web_page.h                               # page web affichée sur le smartphone
 ```
 
 L'IDE Arduino exige que chaque sketch soit dans un dossier du même nom que son fichier `.ino`. Les firmwares `.uf2` compilés (voir [Générer un fichier UF2](#générer-un-fichier-uf2-t-echo)) peuvent être publiés dans les *Releases* GitHub plutôt que versionnés dans le dépôt.
@@ -449,6 +544,8 @@ L'IDE Arduino exige que chaque sketch soit dans un dossier du même nom que son 
 ---
 
 ## Historique des changements
+
+**Ajout : Seeed XIAO ESP32S3 + Wio-SX1262.** Kit sans écran : les résultats s'affichent sur le smartphone, via une page web servie par le XIAO en point d'accès Wi-Fi et/ou un terminal Bluetooth (service Nordic UART). Radio : TCXO 1,8 V, commutateur d'antenne DIO2 + GPIO 38. Les sketches sont désormais rangés chacun dans leur dossier, comme l'exige l'IDE Arduino (avec deux `.ino` dans le même dossier, l'IDE les compilait ensemble et échouait).
 
 **Correctif : faux positifs sur des paquets qui ne viennent pas du répéteur.** La fonction `packetComesFromTarget()` d'origine retenait des paquets dont l'émetteur n'était pas le répéteur, et affichait leur RSSI. Deux causes :
 
@@ -471,6 +568,7 @@ Désormais, seuls sont retenus les paquets dont l'émetteur est établi (annonce
 
 - Sketch d'origine (Heltec V3) : [TutoDuino](https://tutoduino.fr/).
 - Portage T-Echo : adaptation du brochage, de la radio (TCXO, DIO2) et de l'affichage e-paper.
+- Portage XIAO ESP32S3 + Wio-SX1262 : brochage recoupé avec les variantes [Meshtastic](https://github.com/meshtastic/firmware/tree/master/variants/esp32s3/seeed_xiao_s3) et [MeshCore](https://github.com/meshcore-dev/MeshCore/tree/main/variants/xiao_s3_wio) ; affichage déporté sur smartphone.
 - Format des paquets : documentation du projet [MeshCore](https://github.com/meshcore-dev/MeshCore).
 - Brochage et documentation du T-Echo : dépôt [Xinyuan-LilyGO/T-Echo](https://github.com/Xinyuan-LilyGO/T-Echo). L'attribution des bus SPI et l'alimentation ont été recoupées avec l'exemple [LoRa-TEcho-APRSTracker](https://github.com/F4AVI/LoRa-TEcho-APRSTracker) (F4AVI).
 - Bibliothèques : [RadioLib](https://github.com/jgromes/RadioLib), [GxEPD2](https://github.com/ZinggJM/GxEPD2), [Adafruit SSD1306](https://github.com/adafruit/Adafruit_SSD1306).
