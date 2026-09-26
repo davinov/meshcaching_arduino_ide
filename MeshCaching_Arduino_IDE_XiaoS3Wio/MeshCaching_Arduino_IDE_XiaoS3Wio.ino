@@ -7,35 +7,24 @@
  *          spécifique, sur un Seeed XIAO ESP32S3 + Wio-SX1262 (le kit
  *          vendu pour Meshtastic/MeshCore, sans écran).
  *
- *          Faute d'écran, les résultats s'affichent sur le smartphone :
- *            - Wi-Fi  : le XIAO crée un point d'accès, page web sur
- *                       http://192.168.4.1 (RSSI en grand, graphique, ping) ;
- *            - Bluetooth : lignes de texte via le service "Nordic UART",
- *                       lisibles avec une appli comme "Serial Bluetooth Terminal".
- *          Les deux peuvent être activés ensemble (voir USE_WIFI_WEB / USE_BLE_UART).
+ *          Faute d'écran, les résultats s'affichent sur le smartphone, en
+ *          Bluetooth (service "Nordic UART") ou par câble USB :
+ *            - interface web https://david.nowinsky.net/meshcaching-ui/
+ *              (RSSI en grand, graphique, carte, ping) ;
+ *            - ou simples lignes de texte dans une appli terminal
+ *              ("Serial Bluetooth Terminal", "Serial USB Terminal").
  *
- * @author  TutoDuino
  * @see     https://tutoduino.fr/
+ * @see     https://david.nowinsky.net/meshcaching-ui/
  */
 
 #include <SPI.h>
 #include <RadioLib.h>
 
 // =====================================================================
-// 0) SORTIES VERS LE SMARTPHONE (1 = actif, 0 = inactif)
+// 0) SORTIE BLUETOOTH (1 = active, 0 = inactive ; le port USB reste toujours actif)
 // =====================================================================
-#define USE_WIFI_WEB 1  // point d'acces Wi-Fi + page web
 #define USE_BLE_UART 1  // Bluetooth Low Energy, service Nordic UART
-
-// Mot de passe du point d'acces Wi-Fi (8 caracteres minimum).
-// Le nom du reseau est "MeshCaching-XXXX" (XXXX = prefixe du repeteur).
-#define WIFI_AP_PASSWORD "meshcaching"
-
-#if USE_WIFI_WEB
-#include <WiFi.h>
-#include <WebServer.h>
-#include "web_page.h"
-#endif
 
 #if USE_BLE_UART
 #include <BLEDevice.h>
@@ -75,8 +64,9 @@
 
 // !! A ADAPTER : prefixe de la cle publique du repeteur MeshCore vise.
 //const uint8_t TARGET_PUBKEY_PREFIX[] = { 0xC6, 0xF1 };
-const uint8_t TARGET_PUBKEY_PREFIX[] = { 0xE0, 0xB6 };
-//const uint8_t TARGET_PUBKEY_PREFIX[] = { 0x57, 0xDB };
+//const uint8_t TARGET_PUBKEY_PREFIX[] = { 0xE0, 0xB6 };
+// Chasse du 27/09/2026 : "MeshCaching-IdF-2026", cle 57dbbfb74dd235672d91d041b32114dc8719979ebfb7c0d80be82f03c38e7489
+const uint8_t TARGET_PUBKEY_PREFIX[] = { 0x57, 0xDB };
 #define TARGET_PUBKEY_PREFIX_LEN (sizeof(TARGET_PUBKEY_PREFIX))
 
 // Detection des paquets FLOOD retransmis par le repeteur (identifies par le
@@ -130,7 +120,7 @@ unsigned long lastPingMs = 0;
 bool hasPinged = false;
 #define TRACE_REPLY_TIMEOUT_MS 10000UL  // on n'accepte une reponse que dans les 10s suivant le ping
 
-// Nom commun au reseau Wi-Fi et a l'appareil Bluetooth : "MeshCaching-E0B6"
+// Nom de l'appareil Bluetooth : "MeshCaching-E0B6"
 char deviceName[24];
 
 SX1262 lora = new Module(LORA_CS_PIN, LORA_DIO1_PIN, LORA_RST_PIN, LORA_BUSY_PIN);
@@ -148,9 +138,20 @@ void IRAM_ATTR onPacketReceivedISR() {
 // =====================================================================
 // Le service "Nordic UART" (NUS) est un port serie sans fil standard :
 // n'importe quelle appli "terminal Bluetooth" sait l'afficher. On y envoie
-// une ligne par paquet du repeteur, et on accepte deux commandes :
+// une ligne par paquet du repeteur, et on accepte ces commandes (aussi
+// depuis un terminal sur le port USB, voir loop()) :
 //   "p" (ou "ping")   : envoie un ping TRACE
 //   "s" (ou "status") : renvoie l'etat courant
+//   "j"               : renvoie l'etat en JSON sur une ligne, pour l'interface
+//                       web meshcaching-ui (repondu seulement a celui qui demande)
+
+// Les callbacks BLE tournent dans une autre tache que loop() : on se contente
+// de lever des drapeaux, traites ensuite dans loop() (comme pour la radio).
+volatile bool pingRequested = false;
+volatile bool statusRequested = false;
+volatile bool bleJsonRequested = false;
+bool serialJsonRequested = false;
+
 #if USE_BLE_UART
 #define NUS_SERVICE_UUID "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 #define NUS_RX_UUID "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"  // telephone -> XIAO
@@ -158,15 +159,11 @@ void IRAM_ATTR onPacketReceivedISR() {
 
 BLECharacteristic *bleTx = nullptr;
 volatile bool bleConnected = false;
-// Les callbacks BLE tournent dans une autre tache que loop() : on se contente
-// de lever des drapeaux, traites ensuite dans loop() (comme pour la radio).
-volatile bool blePingRequested = false;
-volatile bool bleStatusRequested = false;
 
 class BleServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer *server) override {
     bleConnected = true;
-    bleStatusRequested = true;  // on accueille le telephone avec l'etat courant
+    statusRequested = true;  // on accueille le telephone avec l'etat courant
   }
   void onDisconnect(BLEServer *server) override {
     bleConnected = false;
@@ -179,8 +176,9 @@ class BleRxCallbacks : public BLECharacteristicCallbacks {
     size_t len = c->getLength();
     if (len == 0) return;
     char cmd = tolower(c->getData()[0]);
-    if (cmd == 'p') blePingRequested = true;
-    if (cmd == 's') bleStatusRequested = true;
+    if (cmd == 'p') pingRequested = true;
+    if (cmd == 's') statusRequested = true;
+    if (cmd == 'j') bleJsonRequested = true;
   }
 };
 
@@ -236,6 +234,19 @@ void report(const char *fmt, ...) {
 #if USE_BLE_UART
   bleSendLine(line);
 #endif
+}
+
+// Etat courant en JSON (commande "j")
+void formatStatusJson(char *json, size_t size) {
+  unsigned long age = targetStatus.hasPacket ? (millis() - targetStatus.lastSeenMs) / 1000 : 0;
+  snprintf(json, size,
+           "{\"target\":\"%02X%02X\",\"has\":%s,\"rssi\":%.1f,\"snr\":%.1f,"
+           "\"age\":%lu,\"why\":\"%s\",\"seq\":%lu,\"rx\":%lu,\"pingWait\":%lu}",
+           TARGET_PUBKEY_PREFIX[0], TARGET_PUBKEY_PREFIX[1],
+           targetStatus.hasPacket ? "true" : "false",
+           targetStatus.rssi, targetStatus.snr, age, targetStatus.why,
+           (unsigned long)targetStatus.detections, (unsigned long)targetStatus.packetsHeard,
+           pingWaitSeconds());
 }
 
 void reportStatus() {
@@ -348,7 +359,7 @@ unsigned long pingWaitSeconds() {
   return (BUTTON_COOLDOWN_MS - elapsed + 999) / 1000;
 }
 
-// Point d'entree unique pour les pings (bouton, page web, Bluetooth), avec le
+// Point d'entree unique pour les pings (boutons, Bluetooth, USB), avec le
 // delai minimal entre deux emissions. Renvoie true si le ping est parti.
 bool requestPing() {
   if (pingWaitSeconds() > 0) return false;
@@ -508,58 +519,7 @@ void handleIncomingPacket() {
 }
 
 // =====================================================================
-// 11) WI-FI : POINT D'ACCES + PAGE WEB
-// =====================================================================
-// Le telephone se connecte au reseau "MeshCaching-XXXX", puis ouvre
-// http://192.168.4.1 dans son navigateur. La page interroge /status
-// chaque seconde et peut declencher un ping via POST /ping.
-#if USE_WIFI_WEB
-WebServer webServer(80);
-
-void handleWebRoot() {
-  webServer.send_P(200, "text/html; charset=utf-8", WEB_PAGE_HTML);
-}
-
-void handleWebStatus() {
-  char json[256];
-  unsigned long age = targetStatus.hasPacket ? (millis() - targetStatus.lastSeenMs) / 1000 : 0;
-  snprintf(json, sizeof(json),
-           "{\"target\":\"%02X%02X\",\"has\":%s,\"rssi\":%.1f,\"snr\":%.1f,"
-           "\"age\":%lu,\"why\":\"%s\",\"seq\":%lu,\"rx\":%lu,\"pingWait\":%lu}",
-           TARGET_PUBKEY_PREFIX[0], TARGET_PUBKEY_PREFIX[1],
-           targetStatus.hasPacket ? "true" : "false",
-           targetStatus.rssi, targetStatus.snr, age, targetStatus.why,
-           (unsigned long)targetStatus.detections, (unsigned long)targetStatus.packetsHeard,
-           pingWaitSeconds());
-  webServer.sendHeader("Cache-Control", "no-store");
-  webServer.send(200, "application/json", json);
-}
-
-void handleWebPing() {
-  // Appele depuis loop() (via handleClient) : on peut emettre directement.
-  char json[48];
-  if (requestPing()) {
-    snprintf(json, sizeof(json), "{\"ok\":true}");
-  } else {
-    snprintf(json, sizeof(json), "{\"ok\":false,\"wait\":%lu}", pingWaitSeconds());
-  }
-  webServer.send(200, "application/json", json);
-}
-
-void initWifi() {
-  WiFi.mode(WIFI_AP);
-  WiFi.softAP(deviceName, WIFI_AP_PASSWORD);
-  webServer.on("/", HTTP_GET, handleWebRoot);
-  webServer.on("/status", HTTP_GET, handleWebStatus);
-  webServer.on("/ping", HTTP_POST, handleWebPing);
-  webServer.begin();
-  Serial.printf("Wi-Fi actif : reseau \"%s\", mot de passe \"%s\", page http://%s\n",
-                deviceName, WIFI_AP_PASSWORD, WiFi.softAPIP().toString().c_str());
-}
-#endif
-
-// =====================================================================
-// 12) SETUP / LOOP
+// 11) SETUP / LOOP
 // =====================================================================
 void setup() {
   Serial.begin(115200);
@@ -574,9 +534,6 @@ void setup() {
 
   initRadio();
 
-#if USE_WIFI_WEB
-  initWifi();
-#endif
 #if USE_BLE_UART
   initBle();
 #endif
@@ -585,28 +542,58 @@ void setup() {
 }
 
 void loop() {
-#if USE_WIFI_WEB
-  webServer.handleClient();
-#endif
-
-#if USE_BLE_UART
-  // Rappel periodique de l'etat au telephone, pour suivre le "temps ecoule"
-  static unsigned long lastBleStatus = 0;
-  if (bleConnected && millis() - lastBleStatus >= 10000) {
-    bleStatusRequested = true;
+  // Commandes tapees dans un terminal USB : seule la premiere lettre de
+  // chaque ligne compte, comme en Bluetooth ("p", "ping", "s", "status").
+  static bool atLineStart = true;
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\r' || c == '\n') {
+      atLineStart = true;
+      continue;
+    }
+    if (atLineStart) {
+      c = tolower(c);
+      if (c == 'p') pingRequested = true;
+      if (c == 's') statusRequested = true;
+      if (c == 'j') serialJsonRequested = true;
+    }
+    atLineStart = false;
   }
-  if (bleStatusRequested) {
-    bleStatusRequested = false;
-    lastBleStatus = millis();
+
+  // Reponse JSON, uniquement sur le lien qui l'a demandee : l'interface web
+  // interroge chaque seconde, inutile d'en inonder l'autre terminal.
+  if (serialJsonRequested || bleJsonRequested) {
+    char json[256];
+    formatStatusJson(json, sizeof(json));
+    strcat(json, "\n");
+    if (serialJsonRequested) Serial.print(json);
+#if USE_BLE_UART
+    if (bleJsonRequested) bleSendLine(json);
+#endif
+    serialJsonRequested = bleJsonRequested = false;
+  }
+
+  // Rappel periodique de l'etat au telephone, pour suivre le "temps ecoule".
+  // "Serial" est vrai quand un terminal a ouvert le port USB.
+  bool phoneListening = Serial;
+#if USE_BLE_UART
+  phoneListening = phoneListening || bleConnected;
+#endif
+  static unsigned long lastStatus = 0;
+  if (phoneListening && millis() - lastStatus >= 10000) {
+    statusRequested = true;
+  }
+  if (statusRequested) {
+    statusRequested = false;
+    lastStatus = millis();
     reportStatus();
   }
-  if (blePingRequested) {
-    blePingRequested = false;
+  if (pingRequested) {
+    pingRequested = false;
     if (!requestPing()) {
       report("Ping trop tot : reessayez dans %lu s\n", pingWaitSeconds());
     }
   }
-#endif
 
   // Appui sur un bouton : on force un ping TRACE vers le repeteur cible,
   // au lieu d'attendre passivement son prochain paquet. requestPing()

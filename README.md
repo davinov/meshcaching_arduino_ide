@@ -6,7 +6,7 @@ Trois sketches Arduino qui transforment une carte LoRa en **chercheur de répét
 |---|---|---|---|
 | **Heltec WiFi LoRa 32 V3** | [`MeshCaching_Arduino_IDE_HeltecV3`](MeshCaching_Arduino_IDE_HeltecV3/MeshCaching_Arduino_IDE_HeltecV3.ino) | OLED SSD1306 128×64 | ESP32-S3 |
 | **LilyGO T-Echo** | [`MeshCaching_Arduino_IDE_LilygoTEcho`](MeshCaching_Arduino_IDE_LilygoTEcho/MeshCaching_Arduino_IDE_LilygoTEcho.ino) | e-paper 1,54" 200×200 | nRF52840 |
-| **Seeed XIAO ESP32S3 + Wio-SX1262** | [`MeshCaching_Arduino_IDE_XiaoS3Wio`](MeshCaching_Arduino_IDE_XiaoS3Wio/MeshCaching_Arduino_IDE_XiaoS3Wio.ino) | aucun : **smartphone** en Wi-Fi (page web) et/ou Bluetooth | ESP32-S3 |
+| **Seeed XIAO ESP32S3 + Wio-SX1262** | [`MeshCaching_Arduino_IDE_XiaoS3Wio`](MeshCaching_Arduino_IDE_XiaoS3Wio/MeshCaching_Arduino_IDE_XiaoS3Wio.ino) | aucun : **smartphone** en Bluetooth ou USB ([interface web](https://david.nowinsky.net/meshcaching-ui/)) | ESP32-S3 |
 
 Les trois sketches partagent la même logique (décodage des paquets MeshCore, comparaison avec le répéteur cible). Seuls le brochage, l'affichage et quelques appels spécifiques au microcontrôleur diffèrent.
 
@@ -131,8 +131,8 @@ Si l'aide s'affiche, **lancez (ou relancez) l'IDE Arduino**. Si elle était déj
    ```
 2. Dans le gestionnaire de cartes, installer **esp32 by Espressif Systems** (testé avec la version 3.3), puis choisir la carte **XIAO_ESP32S3**.
 3. Dans le menu *Outils*, vérifier **USB CDC On Boot : Enabled** (sinon le moniteur série reste muet).
-4. Aucune bibliothèque en plus de **RadioLib** : Wi-Fi, serveur web et Bluetooth sont fournis avec le paquet ESP32.
-5. Ouvrir `MeshCaching_Arduino_IDE_XiaoS3Wio/MeshCaching_Arduino_IDE_XiaoS3Wio.ino` (le fichier `web_page.h` s'ouvre dans un second onglet : c'est la page affichée sur le téléphone), brancher la carte, téléverser.
+4. Aucune bibliothèque en plus de **RadioLib** : le Bluetooth est fourni avec le paquet ESP32.
+5. Ouvrir `MeshCaching_Arduino_IDE_XiaoS3Wio/MeshCaching_Arduino_IDE_XiaoS3Wio.ino`, brancher la carte, téléverser.
 
 Si le téléversement échoue (port introuvable), passer le XIAO en mode bootloader : maintenir le petit bouton **B** (BOOT), appuyer sur **R** (RESET), relâcher **B**, puis téléverser à nouveau.
 
@@ -243,10 +243,10 @@ Les valeurs par défaut correspondent au réseau MeshCore **Île-de-France** (pr
 2. Au démarrage :
    - **Heltec** : `Initialisation…` puis `En attente de paquets MeshCore`.
    - **T-Echo** : l'écran affiche `Init radio / patientez...` (LED rouge allumée), puis la LED verte fait deux flashs et l'écran passe à `En attente de paquets MeshCore` avec le préfixe recherché. Si la radio n'est pas détectée, l'initialisation peut durer 10 à 20 s avant un message d'erreur (voir [Dépannage](#dépannage)).
-   - **XIAO** : connectez le téléphone au Wi-Fi `MeshCaching-E0B6` (mot de passe `meshcaching`) et ouvrez `http://192.168.4.1`, et/ou connectez-vous en Bluetooth à `MeshCaching-E0B6` (voir [plus bas](#xiao-esp32s3-smartphone)).
+   - **XIAO** : ouvrez l'[interface web](https://david.nowinsky.net/meshcaching-ui/) sur le téléphone et connectez-vous en Bluetooth à `MeshCaching-E0B6`, ou utilisez un terminal Bluetooth/USB (voir [plus bas](#xiao-esp32s3-smartphone)).
 3. Placez-vous dans une zone où vous pensez capter le répéteur (en hauteur, dégagé). Dès qu'un paquet du répéteur est reçu :
    - l'écran affiche le RSSI, le SNR et le temps écoulé ;
-   - sur T-Echo, la LED bleue clignote ; sur Heltec, l'écran clignote (inversion) ; sur XIAO, le téléphone vibre (page web) ou affiche une ligne `CIBLE` (Bluetooth).
+   - sur T-Echo, la LED bleue clignote ; sur Heltec, l'écran clignote (inversion) ; sur XIAO, le téléphone vibre (interface web) ou affiche une ligne `CIBLE` (terminal).
 4. **Pour forcer une réponse**, appuyez sur le bouton :
    - Heltec : bouton **PRG** ;
    - T-Echo : **bouton utilisateur** (pas le bouton reset/DFU). La LED rouge est allumée pendant l'émission ;
@@ -301,33 +301,20 @@ Le **temps écoulé** est essentiel : un RSSI de `-85 dBm` vieux de 3 minutes ne
 <a id="xiao-esp32s3-smartphone"></a>
 ### XIAO ESP32S3 (smartphone)
 
-Le kit n'a ni écran ni LED utilisable : tout passe par le téléphone. Le nom `MeshCaching-XXXX` (XXXX = préfixe du répéteur) sert à la fois de réseau Wi-Fi et d'appareil Bluetooth. Les deux modes peuvent fonctionner en même temps, et chacun se désactive en tête de sketch (`USE_WIFI_WEB`, `USE_BLE_UART`).
+Le kit n'a ni écran ni LED utilisable : tout passe par le téléphone, en **Bluetooth** (appareil `MeshCaching-XXXX`, XXXX = préfixe du répéteur) ou par **câble USB**. Le Bluetooth se désactive en tête de sketch (`USE_BLE_UART`) ; le port USB reste toujours actif.
 
-**Page web (Wi-Fi)**, la plus lisible sur le terrain :
+**Interface web**, la plus lisible sur le terrain : **https://david.nowinsky.net/meshcaching-ui/** (dépôt séparé `meshcaching-ui`).
 
-1. Paramètres Wi-Fi d'Android → réseau **`MeshCaching-E0B6`**, mot de passe **`meshcaching`** (modifiable : `WIFI_AP_PASSWORD`).
-2. Android signale « Pas d'accès à Internet » : choisir **Rester connecté**. Les données mobiles restent utilisables pour les autres applis.
-3. Dans Chrome, ouvrir **`http://192.168.4.1`**.
+1. Sur Android, ouvrir la page dans **Chrome** (Web Bluetooth ; sur iPhone, utiliser le navigateur « Bluefy »).
+2. Appuyer sur **Connexion Bluetooth** et choisir **`MeshCaching-E0B6`** ; accepter la demande de localisation. Sur ordinateur (Chrome/Edge), **Connexion USB** fonctionne aussi avec le câble.
+3. La page affiche le RSSI en grand (fond coloré : Brûlant > -70, Chaud > -85, Tiède > -100, Froid > -112, Glacial), la tendance, le SNR, l'âge du dernier paquet, un graphique sur 10 minutes et un bouton de ping.
 
-```
-Répéteur E0B6                 connecté
-┌──────────────────────────────────┐
-│             -89 dBm              │   ← fond coloré selon le niveau :
-│              Tiède               │     Brûlant > -70, Chaud > -85,
-│      ▲ +3 dB, plus chaud         │     Tiède > -100, Froid > -112, Glacial
-└──────────────────────────────────┘
-   4.5          12 s          5
- SNR (dB)   dernier paquet  détections
-[ graphique du RSSI sur 10 minutes ]
-[        Ping le répéteur          ]
-   ☑ Vibration     ☐ Bip
-```
-
-- mise à jour **chaque seconde** ; la tendance compare le RSSI au paquet précédent ;
-- le téléphone **vibre** à chaque nouveau paquet du répéteur (vibration courte et triple quand le signal est fort) ;
-- l'option **Bip** joue un son d'autant plus aigu que le signal est fort : pratique pour chercher sans regarder l'écran ;
-- Chrome n'autorise vibration et son qu'après **un premier appui sur la page** ;
+- le téléphone **vibre** à chaque nouveau paquet du répéteur ; l'option **Bip** joue un son d'autant plus aigu que le signal est fort ;
+- chaque détection est **enregistrée avec la position GPS**, affichée sur un plan hors ligne ou sur une carte OpenStreetMap ;
+- l'historique est gardé dans le téléphone et survit au rechargement de la page ;
 - le « dernier paquet » passe en orange au-delà de 2 minutes : un vieux RSSI ne dit rien de votre position actuelle.
+
+L'interface interroge le XIAO chaque seconde avec la commande `j`, qui renvoie l'état sur une ligne JSON (`{"target":"E0B6","has":true,"rssi":-89.0,...}`), et envoie `p` pour un ping.
 
 **Bluetooth (terminal texte)**, plus économe en batterie :
 
@@ -404,18 +391,18 @@ Astuce : votre **corps** atténue le signal. Tenir la carte contre soi, puis la 
 |---|---|---|---|
 | MCU | ESP32-S3 | nRF52840 | ESP32-S3 |
 | Radio | SX1262 | SX1262 | SX1262 |
-| Écran | OLED SSD1306 (128×64) | e-paper 1,54" (200×200, GDEH0154D67) | aucun : page web (Wi-Fi) et/ou terminal Bluetooth sur smartphone |
-| Rafraîchissement écran | chaque seconde | 10 s (ou immédiat sur nouveau paquet) | chaque seconde (page web), 10 s (rappel Bluetooth) |
-| Bouton de ping | PRG (GPIO 0) | bouton utilisateur (P1.10) | bouton de la Wio-SX1262 (GPIO 21) ou BOOT (GPIO 0), page web, commande `p` |
+| Écran | OLED SSD1306 (128×64) | e-paper 1,54" (200×200, GDEH0154D67) | aucun : interface web ou terminal sur smartphone (Bluetooth ou USB) |
+| Rafraîchissement écran | chaque seconde | 10 s (ou immédiat sur nouveau paquet) | chaque seconde (interface web), 10 s (rappel terminal) |
+| Bouton de ping | PRG (GPIO 0) | bouton utilisateur (P1.10) | bouton de la Wio-SX1262 (GPIO 21) ou BOOT (GPIO 0), interface web, commande `p` |
 | Retour visuel | clignotement de l'écran | LED bleue (réception), LED rouge (émission) | vibration / bip du téléphone |
 | Alimentation périphériques | broche Vext (GPIO 36, niveau bas) | deux broches, P0.12 et P0.13 (niveau haut) | aucune broche à piloter |
 | Bus SPI | un seul (`SPI`) | deux : écran (`NRF_SPIM2`) et radio (`NRF_SPIM3`) | un seul (`SPI`) |
 | Aléatoire | `esp_random()` | `random()` initialisé avec l'ID de la puce | `esp_random()` |
-| Bibliothèque écran | Adafruit SSD1306 | GxEPD2 | aucune (Wi-Fi, WebServer et BLE du paquet ESP32) |
+| Bibliothèque écran | Adafruit SSD1306 | GxEPD2 | aucune (BLE du paquet ESP32) |
 | TCXO / commutateur d'antenne | valeurs par défaut de RadioLib | TCXO 1,8 V et DIO2 comme commutateur RF | TCXO 1,8 V, DIO2 (émission) + GPIO 38 (réception) |
 | Antenne | connecteur, externe possible | intégrée au boîtier | connecteur U.FL/IPEX, externe possible |
 | Température d'utilisation de l'écran | non critique | écran donné pour 0 °C à 50 °C, plus lent par grand froid | sans objet |
-| Autonomie | courte (écran allumé en continu) | longue (e-paper) | moyenne (le Wi-Fi consomme ~100 mA ; le Bluetooth seul, bien moins) |
+| Autonomie | courte (écran allumé en continu) | longue (e-paper) | moyenne (Bluetooth basse consommation) |
 
 ### Brochage
 
@@ -469,9 +456,7 @@ Tous sont en tête de sketch (`#define`).
 | `FULL_REFRESH_EVERY` | fréquence du rafraîchissement complet | T-Echo |
 | `BUTTON_COOLDOWN_MS` | délai minimal entre deux pings | T-Echo, XIAO |
 | `EPD_ROTATION` | orientation de l'écran (3 ou 1) | T-Echo |
-| `USE_WIFI_WEB` | `1` : point d'accès Wi-Fi et page web | XIAO |
 | `USE_BLE_UART` | `1` : terminal Bluetooth (Nordic UART) | XIAO |
-| `WIFI_AP_PASSWORD` | mot de passe du Wi-Fi (8 caractères minimum) | XIAO |
 
 ---
 
@@ -506,7 +491,7 @@ Tous sont en tête de sketch (`#define`).
 | Pas de réponse au ping | Firmware ou configuration du répéteur ; se rabattre sur l'écoute passive. |
 | XIAO : moniteur série muet | Régler *Outils → USB CDC On Boot : Enabled* et téléverser à nouveau. |
 | XIAO : `Erreur LoRa : -2` en boucle sur le port série | La carte Wio-SX1262 n'est pas détectée : vérifier qu'elle est bien enfichée sur le XIAO. |
-| XIAO : la page `http://192.168.4.1` ne s'ouvre pas | Vérifier que le téléphone est bien resté sur le Wi-Fi `MeshCaching-…` (accepter « Rester connecté » malgré l'absence d'Internet), et taper l'adresse avec `http://` (pas `https://`). |
+| XIAO : pas de bouton « Connexion Bluetooth » sur l'interface web | Le navigateur ne gère pas Web Bluetooth : utiliser Chrome sur Android (ou Bluefy sur iPhone). |
 | XIAO : ni vibration ni bip | Toucher la page une fois (exigence de Chrome), vérifier les cases *Vibration* / *Bip* et que le téléphone n'est pas en silencieux. |
 | XIAO : appareil Bluetooth introuvable | Chercher dans l'onglet **Bluetooth LE** de l'appli (pas « Bluetooth Classic ») ; ne pas associer le XIAO dans les paramètres Android. Un seul téléphone peut être connecté à la fois. |
 
@@ -535,8 +520,7 @@ Le **moniteur série (115200 bauds)** affiche chaque paquet reçu (longueur, RSS
 ├── MeshCaching_Arduino_IDE_LilygoTEcho/
 │   └── MeshCaching_Arduino_IDE_LilygoTEcho.ino  # LilyGO T-Echo
 └── MeshCaching_Arduino_IDE_XiaoS3Wio/
-    ├── MeshCaching_Arduino_IDE_XiaoS3Wio.ino    # XIAO ESP32S3 + Wio-SX1262
-    └── web_page.h                               # page web affichée sur le smartphone
+    └── MeshCaching_Arduino_IDE_XiaoS3Wio.ino    # XIAO ESP32S3 + Wio-SX1262
 ```
 
 L'IDE Arduino exige que chaque sketch soit dans un dossier du même nom que son fichier `.ino`. Les firmwares `.uf2` compilés (voir [Générer un fichier UF2](#générer-un-fichier-uf2-t-echo)) peuvent être publiés dans les *Releases* GitHub plutôt que versionnés dans le dépôt.
@@ -544,6 +528,8 @@ L'IDE Arduino exige que chaque sketch soit dans un dossier du même nom que son 
 ---
 
 ## Historique des changements
+
+**XIAO : interface web hébergée à la place du Wi-Fi.** La page web servie par le XIAO en point d'accès Wi-Fi est remplacée par l'[interface meshcaching-ui](https://david.nowinsky.net/meshcaching-ui/), qui se connecte au XIAO en Bluetooth ou en USB (nouvelle commande `j` : état en JSON). Servie en HTTPS, elle a accès au GPS du téléphone et à Internet (carte). Les commandes `p` / `s` / `j` sont aussi acceptées sur le port USB. Firmware deux fois plus léger, sans le Wi-Fi qui consommait ~100 mA.
 
 **Ajout : Seeed XIAO ESP32S3 + Wio-SX1262.** Kit sans écran : les résultats s'affichent sur le smartphone, via une page web servie par le XIAO en point d'accès Wi-Fi et/ou un terminal Bluetooth (service Nordic UART). Radio : TCXO 1,8 V, commutateur d'antenne DIO2 + GPIO 38. Les sketches sont désormais rangés chacun dans leur dossier, comme l'exige l'IDE Arduino (avec deux `.ino` dans le même dossier, l'IDE les compilait ensemble et échouait).
 
